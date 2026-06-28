@@ -1,0 +1,64 @@
+name: Build ToneHarbor Clean APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify exact package exists
+        run: |
+          ls -la
+          test -f ToneHarbor.zip
+          echo "Using exact package: ToneHarbor.zip"
+
+      - name: Unzip exact ToneHarbor package
+        run: |
+          rm -rf extracted
+          unzip ToneHarbor.zip -d extracted
+          find extracted -maxdepth 4 -type f | sort
+
+      - name: Locate Android project
+        run: |
+          PROJECT_DIR=$(find extracted -name settings.gradle -exec dirname {} \; | head -n 1)
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "No Android project found."
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+          echo "Android project found at: $PROJECT_DIR"
+
+      - name: Reject old contaminated app wording
+        run: |
+          if grep -R "Delilah Rescue\|V1.0-G\|prototype\|template\|coming soon" extracted; then
+            echo "Old contaminated wording found. Refusing to build."
+            exit 1
+          fi
+          echo "No old contaminated wording found."
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+
+      - name: Build debug APK
+        run: |
+          cd "$PROJECT_DIR"
+          gradle :app:assembleDebug --stacktrace
+
+      - name: Upload clean APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ToneHarbor-Clean-APK
+          path: extracted/**/app/build/outputs/apk/debug/*.apk
