@@ -11,16 +11,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify exact package exists
+      - name: Find single ToneHarbor package
         run: |
           ls -la
-          test -f ToneHarbor.zip
-          echo "Using exact package: ToneHarbor.zip"
+          ZIP_COUNT=$(ls ToneHarbor*.zip 2>/dev/null | wc -l)
+          if [ "$ZIP_COUNT" -ne 1 ]; then
+            echo "Expected exactly one ToneHarbor ZIP, found $ZIP_COUNT."
+            ls -la ToneHarbor*.zip || true
+            exit 1
+          fi
+          ZIP_FILE=$(ls ToneHarbor*.zip | head -n 1)
+          echo "ZIP_FILE=$ZIP_FILE" >> $GITHUB_ENV
+          echo "Using package: $ZIP_FILE"
 
-      - name: Unzip exact ToneHarbor package
+      - name: Unzip ToneHarbor package
         run: |
           rm -rf extracted
-          unzip ToneHarbor.zip -d extracted
+          unzip "$ZIP_FILE" -d extracted
           echo "Extracted project preview:"
           find extracted -maxdepth 4 -type f | sort
 
